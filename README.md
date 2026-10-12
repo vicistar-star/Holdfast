@@ -13,8 +13,6 @@ A seller drops a payment link into a DM. The buyer pays. Funds are held until th
 
 </div>
 
-> **Status: pre-alpha / design phase.** Nothing here has been audited, and nothing should hold real money until it has been. See [Security](#security), [Regulatory notes](#regulatory-notes-nigeria-first) and [Roadmap](#roadmap).
-
 ---
 
 ## Table of contents
