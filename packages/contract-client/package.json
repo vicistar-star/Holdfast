@@ -1,0 +1,28 @@
+{
+  "name": "@holdfast/contract-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --experimental-strip-types --test src/**/*.test.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@holdfast/shared": "workspace:*",
+    "@stellar/stellar-sdk": "13.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.17",
+    "typescript": "5.8.3"
+  }
+}

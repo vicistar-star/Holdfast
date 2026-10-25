@@ -1,0 +1,29 @@
+{
+  "name": "holdfast",
+  "private": true,
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "build": "pnpm --recursive --filter './packages/*' build && pnpm --recursive --filter './apps/*' build",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint",
+    "typecheck": "pnpm --recursive typecheck",
+    "contract:test": "cd contracts/escrow && cargo test",
+    "contract:build": "cd contracts/escrow && cargo build --target wasm32v1-none --release",
+    "contract:clippy": "cd contracts/escrow && cargo clippy -- -D warnings",
+    "db:migrate": "pnpm --filter @holdfast/db migrate",
+    "db:generate": "pnpm --filter @holdfast/db generate"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "8.32.1",
+    "@typescript-eslint/parser": "8.32.1",
+    "eslint": "9.26.0",
+    "eslint-config-prettier": "10.1.5",
+    "prettier": "3.5.3",
+    "typescript": "5.8.3"
+  }
+}

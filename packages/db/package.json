@@ -1,0 +1,32 @@
+{
+  "name": "@holdfast/db",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "test": "node --experimental-strip-types --test src/**/*.test.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@holdfast/shared": "workspace:*",
+    "drizzle-orm": "0.43.1",
+    "postgres": "3.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.17",
+    "drizzle-kit": "0.31.0",
+    "typescript": "5.8.3"
+  }
+}
