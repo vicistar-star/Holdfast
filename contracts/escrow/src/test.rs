@@ -68,14 +68,28 @@ fn setup() -> TestSetup<'static> {
     let contract_id = env.register(EscrowContract, ());
     let contract = EscrowContractClient::new(&env, &contract_id);
 
-    contract.initialize(&admin, &arbiter, &treasury, &DEFAULT_FEE_BPS, &DEFAULT_MAX_AMOUNT);
+    contract.initialize(
+        &admin,
+        &arbiter,
+        &treasury,
+        &DEFAULT_FEE_BPS,
+        &DEFAULT_MAX_AMOUNT,
+    );
 
     // SAFETY: extending lifetimes here is a common soroban-sdk test pattern.
     // The Env outlives all clients in these tests.
-    let contract: EscrowContractClient<'static> =
-        unsafe { core::mem::transmute(contract) };
+    let contract: EscrowContractClient<'static> = unsafe { core::mem::transmute(contract) };
 
-    TestSetup { env, contract, token, admin, arbiter, treasury, buyer, seller }
+    TestSetup {
+        env,
+        contract,
+        token,
+        admin,
+        arbiter,
+        treasury,
+        buyer,
+        seller,
+    }
 }
 
 fn default_ship_by(env: &Env) -> u64 {
@@ -129,8 +143,14 @@ mod create_and_fund {
         let id = create_default_order(&s);
         assert_eq!(id, 1);
 
-        assert_eq!(balance(&s.env, &s.token, &s.buyer), buyer_before - DEFAULT_AMOUNT);
-        assert_eq!(balance(&s.env, &s.token, &contract_addr), contract_before + DEFAULT_AMOUNT);
+        assert_eq!(
+            balance(&s.env, &s.token, &s.buyer),
+            buyer_before - DEFAULT_AMOUNT
+        );
+        assert_eq!(
+            balance(&s.env, &s.token, &contract_addr),
+            contract_before + DEFAULT_AMOUNT
+        );
 
         let order = s.contract.get_order(&id);
         assert_eq!(order.status, Status::Funded);
@@ -143,8 +163,12 @@ mod create_and_fund {
     fn rejects_zero_amount() {
         let s = setup();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &0,
-            &default_ship_by(&s.env), &DEFAULT_REVIEW_SECS,
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &0,
+            &default_ship_by(&s.env),
+            &DEFAULT_REVIEW_SECS,
         ));
         assert_eq!(err, Error::AmountInvalid);
     }
@@ -153,8 +177,12 @@ mod create_and_fund {
     fn rejects_negative_amount() {
         let s = setup();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &-1,
-            &default_ship_by(&s.env), &DEFAULT_REVIEW_SECS,
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &-1,
+            &default_ship_by(&s.env),
+            &DEFAULT_REVIEW_SECS,
         ));
         assert_eq!(err, Error::AmountInvalid);
     }
@@ -164,7 +192,12 @@ mod create_and_fund {
         let s = setup();
         let past = s.env.ledger().timestamp().saturating_sub(1);
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &DEFAULT_AMOUNT, &past, &DEFAULT_REVIEW_SECS,
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &DEFAULT_AMOUNT,
+            &past,
+            &DEFAULT_REVIEW_SECS,
         ));
         assert_eq!(err, Error::DeadlineInvalid);
     }
@@ -174,7 +207,12 @@ mod create_and_fund {
         let s = setup();
         let now = s.env.ledger().timestamp();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &DEFAULT_AMOUNT, &now, &DEFAULT_REVIEW_SECS,
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &DEFAULT_AMOUNT,
+            &now,
+            &DEFAULT_REVIEW_SECS,
         ));
         assert_eq!(err, Error::DeadlineInvalid);
     }
@@ -183,8 +221,12 @@ mod create_and_fund {
     fn rejects_amount_above_cap() {
         let s = setup();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &(DEFAULT_MAX_AMOUNT + 1),
-            &default_ship_by(&s.env), &DEFAULT_REVIEW_SECS,
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &(DEFAULT_MAX_AMOUNT + 1),
+            &default_ship_by(&s.env),
+            &DEFAULT_REVIEW_SECS,
         ));
         assert_eq!(err, Error::CapExceeded);
     }
@@ -194,8 +236,12 @@ mod create_and_fund {
         let s = setup();
         s.contract.pause();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &DEFAULT_AMOUNT,
-            &default_ship_by(&s.env), &DEFAULT_REVIEW_SECS,
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &DEFAULT_AMOUNT,
+            &default_ship_by(&s.env),
+            &DEFAULT_REVIEW_SECS,
         ));
         assert_eq!(err, Error::Paused);
     }
@@ -204,8 +250,12 @@ mod create_and_fund {
     fn rejects_review_secs_too_short() {
         let s = setup();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &DEFAULT_AMOUNT,
-            &default_ship_by(&s.env), &(crate::MIN_REVIEW_SECS - 1),
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &DEFAULT_AMOUNT,
+            &default_ship_by(&s.env),
+            &(crate::MIN_REVIEW_SECS - 1),
         ));
         assert_eq!(err, Error::ReviewSecsInvalid);
     }
@@ -214,8 +264,12 @@ mod create_and_fund {
     fn rejects_review_secs_too_long() {
         let s = setup();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &DEFAULT_AMOUNT,
-            &default_ship_by(&s.env), &(crate::MAX_REVIEW_SECS + 1),
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &DEFAULT_AMOUNT,
+            &default_ship_by(&s.env),
+            &(crate::MAX_REVIEW_SECS + 1),
         ));
         assert_eq!(err, Error::ReviewSecsInvalid);
     }
@@ -320,8 +374,14 @@ mod confirm_delivery {
         let expected_fee = (DEFAULT_AMOUNT * DEFAULT_FEE_BPS) / 10_000;
         let expected_to_seller = DEFAULT_AMOUNT - expected_fee;
 
-        assert_eq!(balance(&s.env, &s.token, &s.seller), seller_before + expected_to_seller);
-        assert_eq!(balance(&s.env, &s.token, &s.treasury), treasury_before + expected_fee);
+        assert_eq!(
+            balance(&s.env, &s.token, &s.seller),
+            seller_before + expected_to_seller
+        );
+        assert_eq!(
+            balance(&s.env, &s.token, &s.treasury),
+            treasury_before + expected_fee
+        );
 
         let order = s.contract.get_order(&id);
         assert_eq!(order.status, Status::Released);
@@ -380,7 +440,10 @@ mod claim_auto_release {
 
         let expected_fee = (DEFAULT_AMOUNT * DEFAULT_FEE_BPS) / 10_000;
         let expected_to_seller = DEFAULT_AMOUNT - expected_fee;
-        assert_eq!(balance(&s.env, &s.token, &s.seller), seller_before + expected_to_seller);
+        assert_eq!(
+            balance(&s.env, &s.token, &s.seller),
+            seller_before + expected_to_seller
+        );
     }
 
     #[test]
@@ -449,7 +512,10 @@ mod claim_refund {
         let buyer_before = balance(&s.env, &s.token, &s.buyer);
         s.contract.claim_refund(&id);
 
-        assert_eq!(balance(&s.env, &s.token, &s.buyer), buyer_before + DEFAULT_AMOUNT);
+        assert_eq!(
+            balance(&s.env, &s.token, &s.buyer),
+            buyer_before + DEFAULT_AMOUNT
+        );
         assert_eq!(s.contract.get_order(&id).status, Status::Refunded);
     }
 
@@ -585,7 +651,10 @@ mod resolve_dispute {
 
         s.contract.resolve_dispute(&id, &DEFAULT_AMOUNT, &0);
 
-        assert_eq!(balance(&s.env, &s.token, &s.buyer), buyer_before + DEFAULT_AMOUNT);
+        assert_eq!(
+            balance(&s.env, &s.token, &s.buyer),
+            buyer_before + DEFAULT_AMOUNT
+        );
         // No fee charged on the buyer's share.
         assert_eq!(balance(&s.env, &s.token, &s.treasury), treasury_before);
         assert_eq!(s.contract.get_order(&id).status, Status::Resolved);
@@ -607,9 +676,18 @@ mod resolve_dispute {
 
         s.contract.resolve_dispute(&id, &buyer_share, &seller_share);
 
-        assert_eq!(balance(&s.env, &s.token, &s.buyer), buyer_before + buyer_share);
-        assert_eq!(balance(&s.env, &s.token, &s.seller), seller_before + expected_net_seller);
-        assert_eq!(balance(&s.env, &s.token, &s.treasury), treasury_before + expected_fee);
+        assert_eq!(
+            balance(&s.env, &s.token, &s.buyer),
+            buyer_before + buyer_share
+        );
+        assert_eq!(
+            balance(&s.env, &s.token, &s.seller),
+            seller_before + expected_net_seller
+        );
+        assert_eq!(
+            balance(&s.env, &s.token, &s.treasury),
+            treasury_before + expected_fee
+        );
     }
 
     #[test]
@@ -634,7 +712,8 @@ mod resolve_dispute {
         let s = setup();
         let id = disputed_order(&s);
         let before = balance(&s.env, &s.token, &s.contract.address);
-        s.contract.resolve_dispute(&id, &(DEFAULT_AMOUNT / 2), &(DEFAULT_AMOUNT / 2));
+        s.contract
+            .resolve_dispute(&id, &(DEFAULT_AMOUNT / 2), &(DEFAULT_AMOUNT / 2));
         let after = balance(&s.env, &s.token, &s.contract.address);
         assert_eq!(after, before - DEFAULT_AMOUNT);
     }
@@ -677,7 +756,10 @@ mod admin {
         s.contract.confirm_delivery(&id);
 
         let expected_fee = (DEFAULT_AMOUNT * DEFAULT_FEE_BPS) / 10_000;
-        assert_eq!(balance(&s.env, &s.token, &new_treasury), before + expected_fee);
+        assert_eq!(
+            balance(&s.env, &s.token, &new_treasury),
+            before + expected_fee
+        );
     }
 
     #[test]
@@ -685,8 +767,12 @@ mod admin {
         let s = setup();
         s.contract.pause();
         let err = unwrap_err(s.contract.try_create_and_fund(
-            &s.buyer, &s.seller, &s.token, &DEFAULT_AMOUNT,
-            &default_ship_by(&s.env), &DEFAULT_REVIEW_SECS,
+            &s.buyer,
+            &s.seller,
+            &s.token,
+            &DEFAULT_AMOUNT,
+            &default_ship_by(&s.env),
+            &DEFAULT_REVIEW_SECS,
         ));
         assert_eq!(err, Error::Paused);
     }
@@ -755,14 +841,32 @@ mod terminal_states {
         s.contract.mark_shipped(&id);
         s.contract.confirm_delivery(&id);
 
-        assert_eq!(unwrap_err(s.contract.try_mark_shipped(&id)), Error::WrongState);
-        assert_eq!(unwrap_err(s.contract.try_confirm_delivery(&id)), Error::WrongState);
-        assert_eq!(unwrap_err(s.contract.try_open_dispute(&id)), Error::WrongState);
-        assert_eq!(unwrap_err(s.contract.try_resolve_dispute(&id, &DEFAULT_AMOUNT, &0)), Error::WrongState);
+        assert_eq!(
+            unwrap_err(s.contract.try_mark_shipped(&id)),
+            Error::WrongState
+        );
+        assert_eq!(
+            unwrap_err(s.contract.try_confirm_delivery(&id)),
+            Error::WrongState
+        );
+        assert_eq!(
+            unwrap_err(s.contract.try_open_dispute(&id)),
+            Error::WrongState
+        );
+        assert_eq!(
+            unwrap_err(s.contract.try_resolve_dispute(&id, &DEFAULT_AMOUNT, &0)),
+            Error::WrongState
+        );
         advance_time(&s.env, DEFAULT_REVIEW_SECS + 1);
-        assert_eq!(unwrap_err(s.contract.try_claim_auto_release(&id)), Error::WrongState);
+        assert_eq!(
+            unwrap_err(s.contract.try_claim_auto_release(&id)),
+            Error::WrongState
+        );
         advance_time(&s.env, DEFAULT_SHIP_BY_OFFSET + 1);
-        assert_eq!(unwrap_err(s.contract.try_claim_refund(&id)), Error::WrongState);
+        assert_eq!(
+            unwrap_err(s.contract.try_claim_refund(&id)),
+            Error::WrongState
+        );
     }
 
     #[test]
@@ -772,8 +876,14 @@ mod terminal_states {
         advance_time(&s.env, DEFAULT_SHIP_BY_OFFSET + 1);
         s.contract.claim_refund(&id);
 
-        assert_eq!(unwrap_err(s.contract.try_mark_shipped(&id)), Error::WrongState);
-        assert_eq!(unwrap_err(s.contract.try_claim_refund(&id)), Error::WrongState);
+        assert_eq!(
+            unwrap_err(s.contract.try_mark_shipped(&id)),
+            Error::WrongState
+        );
+        assert_eq!(
+            unwrap_err(s.contract.try_claim_refund(&id)),
+            Error::WrongState
+        );
     }
 
     #[test]
@@ -784,7 +894,10 @@ mod terminal_states {
         s.contract.open_dispute(&id);
         s.contract.resolve_dispute(&id, &DEFAULT_AMOUNT, &0);
 
-        assert_eq!(unwrap_err(s.contract.try_resolve_dispute(&id, &DEFAULT_AMOUNT, &0)), Error::WrongState);
+        assert_eq!(
+            unwrap_err(s.contract.try_resolve_dispute(&id, &DEFAULT_AMOUNT, &0)),
+            Error::WrongState
+        );
     }
 }
 
@@ -817,13 +930,19 @@ mod conservation {
             s.contract.set_fee_bps(&fee_bps);
 
             let token_admin = Address::generate(&s.env);
-            let token_addr = s.env.register_stellar_asset_contract_v2(token_admin.clone());
+            let token_addr = s
+                .env
+                .register_stellar_asset_contract_v2(token_admin.clone());
             let t = token_addr.address();
             StellarAssetClient::new(&s.env, &t).mint(&s.buyer, &amount);
 
             let id = s.contract.create_and_fund(
-                &s.buyer, &s.seller, &t, &amount,
-                &default_ship_by(&s.env), &DEFAULT_REVIEW_SECS,
+                &s.buyer,
+                &s.seller,
+                &t,
+                &amount,
+                &default_ship_by(&s.env),
+                &DEFAULT_REVIEW_SECS,
             );
             s.contract.mark_shipped(&id);
             s.contract.open_dispute(&id);
@@ -836,7 +955,8 @@ mod conservation {
             let after = balance(&s.env, &t, &s.contract.address);
 
             assert_eq!(
-                after, before - amount,
+                after,
+                before - amount,
                 "conservation violated: amount={amount} fee_bps={fee_bps} buyer_pct={buyer_pct}"
             );
         }
@@ -848,20 +968,27 @@ mod conservation {
             let s = setup();
 
             let token_admin = Address::generate(&s.env);
-            let token_addr = s.env.register_stellar_asset_contract_v2(token_admin.clone());
+            let token_addr = s
+                .env
+                .register_stellar_asset_contract_v2(token_admin.clone());
             let t = token_addr.address();
             StellarAssetClient::new(&s.env, &t).mint(&s.buyer, &amount);
 
             let id = s.contract.create_and_fund(
-                &s.buyer, &s.seller, &t, &amount,
-                &default_ship_by(&s.env), &DEFAULT_REVIEW_SECS,
+                &s.buyer,
+                &s.seller,
+                &t,
+                &amount,
+                &default_ship_by(&s.env),
+                &DEFAULT_REVIEW_SECS,
             );
             advance_time(&s.env, DEFAULT_SHIP_BY_OFFSET + 1);
 
             let buyer_before = balance(&s.env, &t, &s.buyer);
             s.contract.claim_refund(&id);
             assert_eq!(
-                balance(&s.env, &t, &s.buyer), buyer_before + amount,
+                balance(&s.env, &t, &s.buyer),
+                buyer_before + amount,
                 "refund not fee-free for amount={amount}"
             );
         }

@@ -129,7 +129,11 @@ impl EscrowContract {
         review_secs: u64,
     ) -> Result<u64, Error> {
         // Check pause first so the error is clear.
-        let paused: bool = env.storage().instance().get(&DataKey::Paused).unwrap_or(false);
+        let paused: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::Paused)
+            .unwrap_or(false);
         if paused {
             return Err(Error::Paused);
         }
