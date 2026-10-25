@@ -1,5 +1,7 @@
-// Placeholder Next.js app entry — full implementation in subsequent commits.
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+import type { ReactNode } from "react";
+
+// Placeholder Next.js root layout. Full implementation follows.
+export default function RootLayout({ children }: { children: ReactNode }): ReactNode {
   return (
     <html lang="en">
       <body>{children}</body>

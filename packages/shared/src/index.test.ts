@@ -1,3 +1,7 @@
+/**
+ * shared package tests.
+ */
+
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -5,7 +9,6 @@ import {
   assertConservation,
   parseEscrowMode,
   TERMINAL_STATUSES,
-  type OrderStatus,
 } from "./index.ts";
 
 describe("computeFee", () => {
@@ -44,7 +47,7 @@ describe("assertConservation", () => {
     assertConservation(1_000_000n, 990_000n, 10_000n);
   });
 
-  it("throws when payouts do not sum to funded amount", () => {
+  it("throws when payouts do not sum", () => {
     assert.throws(
       () => assertConservation(1_000_000n, 990_000n, 9_999n),
       /Conservation violated/,

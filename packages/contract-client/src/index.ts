@@ -24,8 +24,8 @@ import {
   BASE_FEE,
   nativeToScVal,
   scValToNative,
-  xdr,
   rpc,
+  type xdr,
   type Keypair,
   type Account,
   type Transaction,
@@ -184,10 +184,10 @@ export class EscrowClient {
   // ── Transaction builders ───────────────────────────────────────────────────
 
   /** Build a create_and_fund transaction. Returns base64 XDR. */
-  async buildCreateAndFund(
+  buildCreateAndFund(
     params: CreateAndFundParams,
     sourceAccount: Account,
-  ): Promise<string> {
+  ): string {
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
       networkPassphrase: this.networkPassphrase,
@@ -210,12 +210,12 @@ export class EscrowClient {
   }
 
   /** Build a mark_shipped transaction. Returns base64 XDR. */
-  async buildMarkShipped(id: bigint, sourceAccount: Account): Promise<string> {
+  buildMarkShipped(id: bigint, sourceAccount: Account): string {
     return this.buildIdCall("mark_shipped", id, sourceAccount);
   }
 
   /** Build a confirm_delivery transaction. Returns base64 XDR. */
-  async buildConfirmDelivery(id: bigint, sourceAccount: Account): Promise<string> {
+  buildConfirmDelivery(id: bigint, sourceAccount: Account): string {
     return this.buildIdCall("confirm_delivery", id, sourceAccount);
   }
 
@@ -223,7 +223,7 @@ export class EscrowClient {
    * Build a claim_auto_release transaction (permissionless).
    * Anyone may submit this once the review window has closed.
    */
-  async buildClaimAutoRelease(id: bigint, sourceAccount: Account): Promise<string> {
+  buildClaimAutoRelease(id: bigint, sourceAccount: Account): string {
     return this.buildIdCall("claim_auto_release", id, sourceAccount);
   }
 
@@ -231,12 +231,12 @@ export class EscrowClient {
    * Build a claim_refund transaction (permissionless).
    * Anyone may submit this once the ship_by deadline has passed.
    */
-  async buildClaimRefund(id: bigint, sourceAccount: Account): Promise<string> {
+  buildClaimRefund(id: bigint, sourceAccount: Account): string {
     return this.buildIdCall("claim_refund", id, sourceAccount);
   }
 
   /** Build an open_dispute transaction. Caller must be the buyer. */
-  async buildOpenDispute(id: bigint, sourceAccount: Account): Promise<string> {
+  buildOpenDispute(id: bigint, sourceAccount: Account): string {
     return this.buildIdCall("open_dispute", id, sourceAccount);
   }
 
@@ -244,10 +244,10 @@ export class EscrowClient {
    * Build a resolve_dispute transaction. Caller must be the arbiter.
    * buyerShare + sellerShare must equal order.amount exactly.
    */
-  async buildResolveDispute(
+  buildResolveDispute(
     params: ResolveDisputeParams,
     sourceAccount: Account,
-  ): Promise<string> {
+  ): string {
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
       networkPassphrase: this.networkPassphrase,
@@ -266,7 +266,7 @@ export class EscrowClient {
     return tx.toEnvelope().toXDR("base64");
   }
 
-  // ── Sign + submit ──────────────────────────────────────────────────────────
+  // ── Sign + submit
 
   /**
    * Simulate a transaction to get the resource footprint, sign it,
@@ -311,11 +311,11 @@ export class EscrowClient {
   // ── Private helpers ───────────────────────────────────────────────────────
 
   /** Build a transaction that calls a function with a single u64 id argument. */
-  private async buildIdCall(
+  private buildIdCall(
     method: string,
     id: bigint,
     sourceAccount: Account,
-  ): Promise<string> {
+  ): string {
     const tx = new TransactionBuilder(sourceAccount, {
       fee: BASE_FEE,
       networkPassphrase: this.networkPassphrase,
@@ -336,15 +336,32 @@ function decodeOrder(val: xdr.ScVal): Order {
   const raw = scValToNative(val) as Record<string, unknown>;
 
   return {
-    buyer: String(raw["buyer"] ?? ""),
-    seller: String(raw["seller"] ?? ""),
-    token: String(raw["token"] ?? ""),
-    amount: BigInt(String(raw["amount"] ?? 0)),
-    shipBy: BigInt(String(raw["ship_by"] ?? 0)),
-    reviewSecs: BigInt(String(raw["review_secs"] ?? 0)),
-    shippedAt: BigInt(String(raw["shipped_at"] ?? 0)),
+    buyer: coerceString(raw["buyer"]),
+    seller: coerceString(raw["seller"]),
+    token: coerceString(raw["token"]),
+    amount: coerceBigInt(raw["amount"]),
+    shipBy: coerceBigInt(raw["ship_by"]),
+    reviewSecs: coerceBigInt(raw["review_secs"]),
+    shippedAt: coerceBigInt(raw["shipped_at"]),
     status: decodeStatus(raw["status"]),
   };
+}
+
+/** Coerce an unknown value to string safely. */
+function coerceString(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "bigint" || typeof v === "boolean") {
+    return String(v);
+  }
+  return "";
+}
+
+/** Coerce an unknown value to bigint safely. */
+function coerceBigInt(v: unknown): bigint {
+  if (typeof v === "bigint") return v;
+  if (typeof v === "number") return BigInt(v);
+  if (typeof v === "string") return BigInt(v);
+  return 0n;
 }
 
 function decodeStatus(raw: unknown): OrderStatus {

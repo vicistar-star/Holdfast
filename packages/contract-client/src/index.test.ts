@@ -6,7 +6,6 @@
  *   2. Each build* method produces a valid base64 XDR transaction envelope
  *      that round-trips through TransactionBuilder.fromXDR without error.
  *   3. ErrorCode constants match the contract specification.
- *   4. Type exports are correct.
  *
  * No network calls are made — all tests are offline.
  */
@@ -19,13 +18,7 @@ import {
   Networks,
   type Account,
 } from "@stellar/stellar-sdk";
-import {
-  EscrowClient,
-  createClientFromEnv,
-  ErrorCode,
-  type Order,
-  type OrderStatus,
-} from "./index.ts";
+import { EscrowClient, createClientFromEnv, ErrorCode } from "./index.ts";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,7 +34,6 @@ function makeClient(): EscrowClient {
   });
 }
 
-/** Build a minimal Account stub for TransactionBuilder (no network needed). */
 function mockAccount(keypair: Keypair): Account {
   return {
     accountId: () => keypair.publicKey(),
@@ -52,9 +44,8 @@ function mockAccount(keypair: Keypair): Account {
   } as unknown as Account;
 }
 
-/** Verify a base64 XDR string decodes to a valid transaction with exactly one operation. */
-function assertValidTx(xdr: string, label: string) {
-  const tx = TransactionBuilder.fromXDR(xdr, TEST_PASSPHRASE);
+function assertValidTx(xdrStr: string, label: string) {
+  const tx = TransactionBuilder.fromXDR(xdrStr, TEST_PASSPHRASE);
   assert.equal(tx.operations.length, 1, `${label}: expected 1 operation`);
   assert.equal(
     tx.operations[0]?.type,
@@ -84,7 +75,6 @@ describe("EscrowClient", () => {
 
     assert.throws(() => createClientFromEnv(), /Missing required env vars/);
 
-    // Restore
     if (saved.id !== undefined) process.env["ESCROW_CONTRACT_ID"] = saved.id;
     if (saved.rpc !== undefined) process.env["STELLAR_RPC_URL"] = saved.rpc;
     if (saved.pass !== undefined) process.env["STELLAR_NETWORK_PASSPHRASE"] = saved.pass;
@@ -110,80 +100,80 @@ describe("ErrorCode", () => {
 });
 
 describe("buildMarkShipped", () => {
-  it("produces a valid invokeHostFunction XDR envelope", async () => {
+  it("produces a valid invokeHostFunction XDR envelope", () => {
     const client = makeClient();
     const account = mockAccount(Keypair.random());
-    const xdr = await client.buildMarkShipped(1n, account);
-    assertValidTx(xdr, "buildMarkShipped");
+    const xdrStr = client.buildMarkShipped(1n, account);
+    assertValidTx(xdrStr, "buildMarkShipped");
   });
 });
 
 describe("buildConfirmDelivery", () => {
-  it("produces a valid invokeHostFunction XDR envelope", async () => {
+  it("produces a valid invokeHostFunction XDR envelope", () => {
     const client = makeClient();
     const account = mockAccount(Keypair.random());
-    const xdr = await client.buildConfirmDelivery(1n, account);
-    assertValidTx(xdr, "buildConfirmDelivery");
+    const xdrStr = client.buildConfirmDelivery(1n, account);
+    assertValidTx(xdrStr, "buildConfirmDelivery");
   });
 });
 
 describe("buildClaimAutoRelease", () => {
-  it("produces a valid invokeHostFunction XDR envelope", async () => {
+  it("produces a valid invokeHostFunction XDR envelope", () => {
     const client = makeClient();
     const account = mockAccount(Keypair.random());
-    const xdr = await client.buildClaimAutoRelease(1n, account);
-    assertValidTx(xdr, "buildClaimAutoRelease");
+    const xdrStr = client.buildClaimAutoRelease(1n, account);
+    assertValidTx(xdrStr, "buildClaimAutoRelease");
   });
 });
 
 describe("buildClaimRefund", () => {
-  it("produces a valid invokeHostFunction XDR envelope", async () => {
+  it("produces a valid invokeHostFunction XDR envelope", () => {
     const client = makeClient();
     const account = mockAccount(Keypair.random());
-    const xdr = await client.buildClaimRefund(1n, account);
-    assertValidTx(xdr, "buildClaimRefund");
+    const xdrStr = client.buildClaimRefund(1n, account);
+    assertValidTx(xdrStr, "buildClaimRefund");
   });
 });
 
 describe("buildOpenDispute", () => {
-  it("produces a valid invokeHostFunction XDR envelope", async () => {
+  it("produces a valid invokeHostFunction XDR envelope", () => {
     const client = makeClient();
     const account = mockAccount(Keypair.random());
-    const xdr = await client.buildOpenDispute(1n, account);
-    assertValidTx(xdr, "buildOpenDispute");
+    const xdrStr = client.buildOpenDispute(1n, account);
+    assertValidTx(xdrStr, "buildOpenDispute");
   });
 });
 
 describe("buildResolveDispute", () => {
-  it("produces a valid invokeHostFunction XDR envelope", async () => {
+  it("produces a valid invokeHostFunction XDR envelope", () => {
     const client = makeClient();
     const account = mockAccount(Keypair.random());
-    const xdr = await client.buildResolveDispute(
+    const xdrStr = client.buildResolveDispute(
       { id: 1n, buyerShare: 500_000n, sellerShare: 500_000n },
       account,
     );
-    assertValidTx(xdr, "buildResolveDispute");
+    assertValidTx(xdrStr, "buildResolveDispute");
   });
 });
 
 describe("buildCreateAndFund", () => {
-  it("produces a valid invokeHostFunction XDR envelope", async () => {
+  it("produces a valid invokeHostFunction XDR envelope", () => {
     const client = makeClient();
     const buyer = Keypair.random();
     const seller = Keypair.random();
     const account = mockAccount(buyer);
 
-    const xdr = await client.buildCreateAndFund(
+    const xdrStr = client.buildCreateAndFund(
       {
         buyer: buyer.publicKey(),
         seller: seller.publicKey(),
-        token: TEST_CONTRACT_ID, // using contract ID as a stand-in token address
+        token: TEST_CONTRACT_ID,
         amount: 1_000_000n,
         shipBy: BigInt(Math.floor(Date.now() / 1000) + 3 * 24 * 3600),
         reviewSecs: 48n * 3600n,
       },
       account,
     );
-    assertValidTx(xdr, "buildCreateAndFund");
+    assertValidTx(xdrStr, "buildCreateAndFund");
   });
 });
