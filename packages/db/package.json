@@ -13,9 +13,10 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "test": "node --experimental-strip-types --test src/**/*.test.ts",
+    "generate": "drizzle-kit generate --config=drizzle.config.ts",
+    "migrate": "drizzle-kit migrate --config=drizzle.config.ts",
+    "push": "drizzle-kit push --config=drizzle.config.ts",
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
