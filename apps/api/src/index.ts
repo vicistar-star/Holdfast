@@ -1,6 +1,18 @@
-// Holdfast API — placeholder entry point.
-// Full implementation follows in subsequent commits.
+/**
+ * Holdfast API — server entry point.
+ * Starts the Fastify server on PORT (default 3000).
+ */
+import { buildApp } from "./app.ts";
 
-console.warn("API server starting (placeholder)...");
+const PORT = Number(process.env["PORT"] ?? 3000);
+const HOST = process.env["HOST"] ?? "0.0.0.0";
 
-export {};
+const app = await buildApp({ logger: true });
+
+try {
+  await app.listen({ port: PORT, host: HOST });
+  app.log.info(`Holdfast API listening on ${HOST}:${PORT}`);
+} catch (err) {
+  app.log.error(err);
+  process.exit(1);
+}
