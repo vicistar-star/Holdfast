@@ -112,3 +112,10 @@ a pattern in the pilot.
 | 2026-10-25 | All-or-nothing orders | Partial release | Simpler state machine; revisit from pilot | Pilot feedback |
 | 2026-10-25 | Fee rounds down (floor division) | Round half-up, ceiling | Matches Rust i128 truncation; consistent across TS and contract | Any fee model change |
 | 2026-10-25 | Fee charged on seller payout only; refunds are fee-free | Fee on both sides | README rule 6; aligns incentive with delivery | Product decision |
+| 2026-10-27 | webhook_events table added (not in README schema) | Rely on application-level dedup | DB UNIQUE on (provider, event_id) is the simplest safe idempotency guarantee; survives restarts and race conditions | Never — this is a hard requirement |
+| 2026-10-27 | reconciliation_issues table added (not in README schema) | Log-only reconciliation | Structured table enables dashboards, alerting, and audit queries without log parsing | If a different reconciliation architecture is chosen |
+| 2026-10-27 | JWT implemented with Node crypto (no @fastify/jwt) | @fastify/jwt plugin | Plugin not in lockfile; avoiding new installs to keep the build fast; HS256 with timingSafeEqual is correct and reviewable | If RS256 or rotating keys are needed |
+| 2026-10-27 | OTP store in-memory for v1 dev | Redis TTL key | Simpler; single-process dev only. Redis store is the production path — implement before multi-process deploy | Before horizontal scale |
+| 2026-10-27 | LocalDevKeyStore uses AES-256-GCM with env master key | KMS from day 1 | KMS stub requires AWS credentials; local dev must work offline. KmsKeyStore stub is present and throws loudly | Before any staging/production deploy |
+| 2026-10-27 | Buyer access via signed order token (no buyer account) | Require buyer account creation | README: "No buyer account needed". Order token scoped to one order, expires in 24h | If buyer accounts are added |
+| 2026-10-27 | Mock payment provider only; no real partner endpoints | Stub real endpoints | README: never fabricate partner API details. Real adapters added when partner agreements are signed | When a real partner is confirmed |
