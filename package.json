@@ -10,6 +10,7 @@
     "dev": "pnpm --parallel --filter './apps/*' dev",
     "build": "pnpm --recursive --filter './packages/*' build && pnpm --recursive --filter './apps/*' build",
     "test": "pnpm --recursive test",
+    "test:e2e": "pnpm --filter @holdfast/web test:e2e",
     "lint": "eslint apps/*/src packages/*/src",
     "typecheck": "tsc -p tsconfig.eslint.json --noEmit",
     "contract:test": "cd contracts/escrow && cargo test",

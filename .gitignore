@@ -41,6 +41,8 @@ coverage/
 
 # Test artefacts
 junit.xml
+test-results/
+playwright-report/
 
 # Wasm build output (checked in only when intentional)
 *.wasm

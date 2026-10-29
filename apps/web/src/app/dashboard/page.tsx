@@ -81,6 +81,14 @@ export default function SellerDashboardPage() {
     const handleOffline = () => setIsOffline(true);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+
+    // Restore saved auth token if returning
+    const saved = typeof window !== "undefined" ? localStorage.getItem("hf_seller_token") : null;
+    if (saved) {
+      setToken(saved);
+      loadDashboardData(saved);
+    }
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
@@ -158,6 +166,9 @@ export default function SellerDashboardPage() {
       if (!res.ok) throw new Error("Invalid verification code");
       const data = await res.json();
       setToken(data.token);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("hf_seller_token", data.token);
+      }
 
       if (data.user?.role !== "seller") {
         // Need to create handle
