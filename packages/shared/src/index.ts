@@ -500,3 +500,245 @@ export const DEFAULT_TIER_LIMITS: Record<number, TierLimits> = {
 export function getTierLimits(tier: number): TierLimits {
   return DEFAULT_TIER_LIMITS[tier] ?? DEFAULT_TIER_LIMITS[0]!;
 }
+
+// ── Seller reputation ─────────────────────────────────────────────────────────
+
+export interface OrderRecordForReputation {
+  id: string;
+  sellerId: string;
+  buyerPhone: string;
+  sellerPhone: string;
+  sellerPayoutAccount?: string | null | undefined;
+  amount: bigint;
+  status: string; // "Funded" | "Shipped" | "Released" | "Refunded" | "Disputed" | "Resolved"
+  createdAt: Date;
+  fundedAt?: Date | null | undefined;
+  shippedAt?: Date | null | undefined;
+  releasedAt?: Date | null | undefined;
+  disputedAt?: Date | null | undefined;
+  resolvedAt?: Date | null | undefined;
+  buyerShare?: bigint | null | undefined;
+  sellerShare?: bigint | null | undefined;
+}
+
+export interface AntiGamingResult {
+  isFlagged: boolean;
+  reasons: Array<"self_dealing" | "buyer_seller_loop">;
+}
+
+export interface ReputationSummary {
+  sellerHandle: string;
+  isVerified: boolean; // KYC tier >= 1 (kept separate from performance signals)
+  kycTier: number;
+  accountAgeDays: number;
+  completedOrdersLifetime: number;
+  completedOrdersTrailing90d: number;
+  totalVolumeBand: string;
+  isNewSeller: boolean; // true if shipped orders < minSampleSize (default 10)
+  disputeRate: number | null; // null if new seller, otherwise smoothed rate [0, 1]
+  disputesLost: number;
+  medianTimeToShipHours: number | null;
+  medianResponseTimeHours: number | null;
+  flaggedOrdersCount: number;
+}
+
+export const DEFAULT_MIN_SAMPLE_SIZE = 10;
+export const NINETY_DAYS_MS = 90 * 24 * 3600 * 1000;
+
+/**
+ * Checks an order for fraudulent or self-dealing patterns.
+ */
+export function checkAntiGaming(
+  order: OrderRecordForReputation,
+  priorSellerOrdersFromSameBuyer: number,
+  loopThreshold = 3,
+): AntiGamingResult {
+  const reasons: Array<"self_dealing" | "buyer_seller_loop"> = [];
+
+  // Normalize phones (strip non-digits)
+  const normBuyer = order.buyerPhone.replace(/\D/g, "");
+  const normSeller = order.sellerPhone.replace(/\D/g, "");
+  const normPayout = (order.sellerPayoutAccount ?? "").replace(/\D/g, "");
+
+  // 1. Self-dealing check: same phone number or buyer matches seller's payout phone
+  if (normBuyer && normSeller && normBuyer === normSeller) {
+    reasons.push("self_dealing");
+  } else if (normBuyer && normPayout && normBuyer === normPayout) {
+    reasons.push("self_dealing");
+  }
+
+  // 2. Buyer-seller loop: repeated orders between same buyer & seller to farm stats
+  if (priorSellerOrdersFromSameBuyer >= loopThreshold) {
+    reasons.push("buyer_seller_loop");
+  }
+
+  return {
+    isFlagged: reasons.length > 0,
+    reasons,
+  };
+}
+
+/**
+ * Determines the volume band for minor units (NGN kobo).
+ */
+export function getVolumeBand(totalMinor: bigint): string {
+  // Minor units: 100 kobo = ₦1
+  const kobo = totalMinor;
+  if (kobo < 10_000_000n) {
+    return "Under ₦100,000";
+  } else if (kobo < 50_000_000n) {
+    return "₦100,000 - ₦500,000";
+  } else if (kobo < 200_000_000n) {
+    return "₦500,000 - ₦2,000,000";
+  } else if (kobo < 1_000_000_000n) {
+    return "₦2,000,000 - ₦10,000,000";
+  } else {
+    return "₦10,000,000+";
+  }
+}
+
+/**
+ * Computes median value of an array of numbers. Returns null if array is empty.
+ */
+export function calculateMedian(numbers: number[]): number | null {
+  if (numbers.length === 0) return null;
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 !== 0) {
+    return sorted[mid] ?? null;
+  }
+  const low = sorted[mid - 1] ?? 0;
+  const high = sorted[mid] ?? 0;
+  return Math.round(((low + high) / 2) * 10) / 10;
+}
+
+/**
+ * Computes seller reputation signals from orders and account info.
+ */
+export function computeReputation(opts: {
+  sellerHandle: string;
+  sellerCreatedAt: Date;
+  kycTier: number;
+  orders: OrderRecordForReputation[];
+  now?: Date | undefined;
+  minSampleSize?: number | undefined;
+}): ReputationSummary {
+  const now = opts.now ?? new Date();
+  const minSampleSize = opts.minSampleSize ?? DEFAULT_MIN_SAMPLE_SIZE;
+  const ninetyDaysAgo = new Date(now.getTime() - NINETY_DAYS_MS);
+
+  // Track counts per buyer for loop detection
+  const buyerOrderCounts = new Map<string, number>();
+
+  let flaggedOrdersCount = 0;
+  let completedLifetime = 0;
+  let completedTrailing90d = 0;
+  let totalVolumeMinor = 0n;
+  let shippedCount = 0;
+  let disputedCount = 0;
+  let disputesLost = 0;
+
+  const timesToShipHours: number[] = [];
+  const responseTimesHours: number[] = [];
+
+  // Sort orders chronologically for correct loop detection
+  const sortedOrders = [...opts.orders].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+  );
+
+  for (const order of sortedOrders) {
+    const priorCount = buyerOrderCounts.get(order.buyerPhone) ?? 0;
+    const antiGaming = checkAntiGaming(order, priorCount);
+    buyerOrderCounts.set(order.buyerPhone, priorCount + 1);
+
+    if (antiGaming.isFlagged) {
+      flaggedOrdersCount++;
+      continue; // Exclude flagged order from scoring
+    }
+
+    const wasShipped =
+      order.status === "Shipped" ||
+      order.status === "Released" ||
+      order.status === "Disputed" ||
+      order.status === "Resolved";
+
+    if (wasShipped) {
+      shippedCount++;
+    }
+
+    if (order.status === "Released") {
+      completedLifetime++;
+      totalVolumeMinor += order.amount;
+      if (order.releasedAt && order.releasedAt >= ninetyDaysAgo) {
+        completedTrailing90d++;
+      } else if (!order.releasedAt && order.createdAt >= ninetyDaysAgo) {
+        completedTrailing90d++;
+      }
+    }
+
+    if (order.status === "Disputed" || order.status === "Resolved") {
+      disputedCount++;
+    }
+
+    if (order.status === "Resolved") {
+      // Disputes lost = arbiter resolutions mostly in buyer's favour
+      if (
+        order.buyerShare !== undefined &&
+        order.sellerShare !== undefined &&
+        order.buyerShare !== null &&
+        order.sellerShare !== null
+      ) {
+        if (order.buyerShare > order.sellerShare) {
+          disputesLost++;
+        }
+      }
+    }
+
+    // Time to ship: shippedAt - fundedAt
+    if (order.shippedAt && order.fundedAt) {
+      const diffMs = order.shippedAt.getTime() - order.fundedAt.getTime();
+      if (diffMs >= 0) {
+        timesToShipHours.push(diffMs / 3600_000);
+      }
+    }
+
+    // Response time: first transition after creation
+    if (order.fundedAt) {
+      const diffMs = order.fundedAt.getTime() - order.createdAt.getTime();
+      if (diffMs >= 0) {
+        responseTimesHours.push(diffMs / 3600_000);
+      }
+    }
+  }
+
+  // Sample size check
+  const isNewSeller = shippedCount < minSampleSize;
+
+  let disputeRate: number | null = null;
+  if (!isNewSeller) {
+    const rawRate = disputedCount / shippedCount;
+    disputeRate = Math.round(rawRate * 1000) / 1000;
+  }
+
+  const accountAgeDays = Math.max(
+    0,
+    Math.floor((now.getTime() - opts.sellerCreatedAt.getTime()) / (24 * 3600_000)),
+  );
+
+  return {
+    sellerHandle: opts.sellerHandle,
+    isVerified: opts.kycTier >= 1, // Separate marker
+    kycTier: opts.kycTier,
+    accountAgeDays,
+    completedOrdersLifetime: completedLifetime,
+    completedOrdersTrailing90d: completedTrailing90d,
+    totalVolumeBand: getVolumeBand(totalVolumeMinor),
+    isNewSeller,
+    disputeRate,
+    disputesLost,
+    medianTimeToShipHours: calculateMedian(timesToShipHours),
+    medianResponseTimeHours: calculateMedian(responseTimesHours),
+    flaggedOrdersCount,
+  };
+}
+

@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node --experimental-strip-types src/index.ts",
     "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "evidence:verify": "node --experimental-strip-types src/cli/verifyEvidence.ts",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

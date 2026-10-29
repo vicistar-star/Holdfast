@@ -18,6 +18,7 @@ import {
 } from "@holdfast/shared";
 import { authenticate } from "../lib/middleware.ts";
 import { verifyToken, issueOrderToken } from "../auth/jwt.ts";
+import { defaultStorage } from "../storage/s3Client.ts";
 import { badRequest, forbidden, notFound, conflict } from "../lib/errors.ts";
 import { db, schema, eq } from "@holdfast/db";
 
@@ -363,5 +364,55 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     });
 
     reply.status(201).send({ object_key: objectKey, upload_url: null /* S3 presigned URL — Day 4 */ });
+  });
+
+  // POST /v1/orders/:id/evidence/upload — streaming upload to S3-compatible storage
+  app.post("/orders/:id/evidence/upload", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const auth = request.headers.authorization;
+    if (!auth?.startsWith("Bearer ")) return forbidden(reply, request.id);
+
+    const tokenResult = verifyToken(auth.slice(7), JWT_SECRET);
+    if (!tokenResult.ok) return forbidden(reply, request.id);
+
+    const payload = tokenResult.payload;
+    const isBuyerToken = payload.role === "buyer_order" && payload["order_id"] === id;
+    const isSellerOrArbiter = payload.role === "seller" || payload.role === "arbiter";
+    if (!isBuyerToken && !isSellerOrArbiter) return forbidden(reply, request.id);
+
+    const order = await getOrderOrFail(id, reply, request.id);
+    if (!order) return;
+
+    const contentType = request.headers["content-type"] ?? "application/octet-stream";
+    const rawFilename = (request.headers["x-filename"] as string) ?? `upload-${Date.now()}`;
+    const filename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const objectKey = `evidence/${id}/${Date.now()}-${filename}`;
+
+    try {
+      const uploadResult = await defaultStorage.uploadStream({
+        objectKey,
+        stream: request.raw,
+        contentType,
+      });
+
+      const rows = await db
+        .insert(schema.evidence)
+        .values({
+          order_id: id,
+          uploaded_by: isBuyerToken ? "buyer" : payload.sub,
+          object_key: objectKey,
+          sha256: uploadResult.sha256,
+        })
+        .returning();
+
+      reply.status(201).send({
+        id: rows[0]?.id,
+        object_key: objectKey,
+        sha256: uploadResult.sha256,
+        size_bytes: uploadResult.sizeBytes,
+      });
+    } catch (err) {
+      return badRequest(reply, (err as Error).message, request.id);
+    }
   });
 }
