@@ -11,3 +11,7 @@ export type {
   WebhookVerifyResult,
   PaymentProvider,
 } from "@holdfast/shared";
+
+import { MockPaymentProvider } from "./mockProvider.ts";
+
+export const defaultPaymentProvider = new MockPaymentProvider();

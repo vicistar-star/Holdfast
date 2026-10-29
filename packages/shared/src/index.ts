@@ -448,6 +448,13 @@ export const OpenDisputeSchema = z.object({
 });
 export type OpenDispute = z.infer<typeof OpenDisputeSchema>;
 
+export const ResolveDisputeSchema = z.object({
+  buyer_share_minor: z.string().regex(/^\d+$/, "Must be non-negative integer"),
+  seller_share_minor: z.string().regex(/^\d+$/, "Must be non-negative integer"),
+  rationale: z.string().min(5, "Rationale is mandatory").max(2000),
+});
+export type ResolveDispute = z.infer<typeof ResolveDisputeSchema>;
+
 export const UploadEvidenceMetaSchema = z.object({
   filename: z.string().min(1).max(255),
   content_type: z.string().min(1).max(100),
