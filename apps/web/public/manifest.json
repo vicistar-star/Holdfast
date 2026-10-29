@@ -1,0 +1,16 @@
+{
+  "name": "Holdfast Seller Dashboard",
+  "short_name": "Holdfast",
+  "description": "Escrow and payment links for WhatsApp and Instagram sellers",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

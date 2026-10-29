@@ -48,5 +48,19 @@ export default [
       "@typescript-eslint/no-unsafe-member-access": "off",
     },
   },
+  // Frontend UI components — relax rules for JSX event handlers & fetch responses.
+  {
+    files: ["apps/web/src/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-misused-promises": "off",
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
   prettier,
 ];
