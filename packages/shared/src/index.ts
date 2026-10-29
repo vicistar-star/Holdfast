@@ -47,6 +47,73 @@ export function parseEscrowMode(raw: string | undefined): EscrowMode {
   return "A"; // default Mode A per README
 }
 
+// ── Payment provider interface ────────────────────────────────────────────────
+
+export interface PaymentInstructions {
+  /** Reference the buyer uses to make the transfer. */
+  reference: string;
+  account_number?: string;
+  bank_name?: string;
+  instructions: string;
+}
+
+export interface PartnerTransaction {
+  id: string;
+  reference: string;
+  amount_minor: bigint;
+  currency: string;
+  status: "pending" | "success" | "failed";
+  created_at: Date;
+}
+
+export interface PayoutRequest {
+  idempotency_key: string;
+  amount_minor: bigint;
+  currency: string;
+  account_ref: string;
+  narration: string;
+}
+
+export interface PayoutResult {
+  partner_ref: string;
+  status: "pending" | "success" | "failed";
+}
+
+export interface AccountNameResult {
+  name: string;
+  account_number: string;
+  bank_code: string;
+}
+
+export interface WebhookVerifyResult {
+  ok: boolean;
+  event_id: string;
+  event_type: string;
+  reference: string;
+  amount_minor: bigint;
+  currency: string;
+}
+
+export interface PaymentProvider {
+  createPaymentInstructions(
+    orderId: string,
+    amountMinor: bigint,
+    currency: string,
+  ): Promise<PaymentInstructions>;
+  verifyWebhook(
+    rawBody: string,
+    signature: string,
+  ): Promise<WebhookVerifyResult>;
+  getPaymentStatus(reference: string): Promise<PartnerTransaction | null>;
+  createPayout(req: PayoutRequest): Promise<PayoutResult>;
+  createRefund(req: PayoutRequest): Promise<PayoutResult>;
+  resolveAccountName(
+    accountNumber: string,
+    bankCode: string,
+  ): Promise<AccountNameResult>;
+  listTransactions(since: Date): Promise<PartnerTransaction[]>;
+}
+
 // ── Money helpers ─────────────────────────────────────────────────────────────
 
 /**
