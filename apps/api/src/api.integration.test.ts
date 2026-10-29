@@ -8,16 +8,13 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "./app.ts";
-import { db, schema } from "@holdfast/db";
-import { eq } from "drizzle-orm";
+import { db, schema, eq, closeDb } from "@holdfast/db";
 import { issueToken } from "./auth/jwt.ts";
-import postgres from "postgres";
 
 const SKIP = !process.env["DATABASE_URL"];
 const SECRET = process.env["JWT_SECRET"] ?? "dev-secret-change-me";
 
 let app: Awaited<ReturnType<typeof buildApp>>;
-let pool: ReturnType<typeof postgres>;
 
 // Test fixture IDs — fixed so we can clean up reliably.
 const USER_ID = "bbbbbbbb-0000-0000-0000-000000000001";
@@ -29,7 +26,6 @@ before(async () => {
   if (SKIP) return;
   app = await buildApp({ logger: false });
   await app.ready();
-  pool = postgres(process.env["DATABASE_URL"]!);
 
   // Seed test fixtures.
   await db.insert(schema.users).values({ id: USER_ID, phone_e164: "+2349000000001", role: "seller" }).onConflictDoNothing();
@@ -54,7 +50,7 @@ after(async () => {
     eq(schema.order_events.order_id, "00000000-0000-0000-0000-000000000000"), // no-op
   ).catch(() => {});
   await app.close();
-  if (pool) await pool.end();
+  await closeDb();
 });
 
 describe("Order lifecycle integration", { skip: SKIP }, () => {

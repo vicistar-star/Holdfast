@@ -24,7 +24,7 @@ let db: ReturnType<typeof drizzle<typeof schema>>;
 
 before(async () => {
   if (SKIP) return;
-  pool = postgres(DATABASE_URL!);
+  pool = postgres(DATABASE_URL);
   db = drizzle(pool, { schema });
 });
 
@@ -36,7 +36,6 @@ after(async () => {
 describe("order_events append-only enforcement", { skip: SKIP }, () => {
   const orderId = "ffffffff-ffff-ffff-ffff-000000000001";
   const userId = "ffffffff-ffff-ffff-ffff-000000000002";
-  const sellerId = "ffffffff-ffff-ffff-ffff-000000000003";
   const linkId = "ffffffff-ffff-ffff-ffff-000000000004";
   let eventId: number;
 
@@ -73,7 +72,7 @@ describe("order_events append-only enforcement", { skip: SKIP }, () => {
       amount_minor: 100n,
       currency: "NGN",
       status: "Funded",
-      ship_by: new Date(Date.now() + 86400000).toISOString(),
+      ship_by: new Date(Date.now() + 86400000),
     }).onConflictDoNothing();
 
     // Insert a real event.

@@ -8,8 +8,7 @@ import type { FastifyInstance } from "fastify";
 import { CreateSellerSchema, SetPayoutAccountSchema } from "@holdfast/shared";
 import { authenticate } from "../lib/middleware.ts";
 import { badRequest, conflict, notFound, forbidden } from "../lib/errors.ts";
-import { db, schema } from "@holdfast/db";
-import { eq, count, sql } from "drizzle-orm";
+import { db, schema, eq, count, sql } from "@holdfast/db";
 
 export async function sellerRoutes(app: FastifyInstance): Promise<void> {
   // POST /v1/sellers
@@ -18,7 +17,7 @@ export async function sellerRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = CreateSellerSchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
 
     const userId = request.jwtPayload!.sub;
@@ -28,7 +27,7 @@ export async function sellerRoutes(app: FastifyInstance): Promise<void> {
       where: eq(schema.sellers.handle, parsed.data.handle),
     });
     if (existing) {
-      return conflict(reply, "Handle already taken", request.id as string);
+      return conflict(reply, "Handle already taken", request.id);
     }
 
     // Promote the user to seller role
@@ -41,7 +40,7 @@ export async function sellerRoutes(app: FastifyInstance): Promise<void> {
       .returning();
 
     if (!rows[0]) {
-      return conflict(reply, "Seller profile already exists", request.id as string);
+      return conflict(reply, "Seller profile already exists", request.id);
     }
 
     reply.status(201).send({
@@ -66,12 +65,12 @@ export async function sellerRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = SetPayoutAccountSchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
 
     const userId = request.jwtPayload!.sub;
     const seller = await db.query.sellers.findFirst({ where: eq(schema.sellers.user_id, userId) });
-    if (!seller) return forbidden(reply, request.id as string);
+    if (!seller) return forbidden(reply, request.id);
 
     // ASSUMPTION: Real account-name resolution (matching KYC name) is Day 4.
     // Store a reference string for now.
@@ -88,7 +87,7 @@ export async function sellerRoutes(app: FastifyInstance): Promise<void> {
     const seller = await db.query.sellers.findFirst({
       where: eq(schema.sellers.handle, handle),
     });
-    if (!seller) return notFound(reply, "Seller", request.id as string);
+    if (!seller) return notFound(reply, "Seller", request.id);
 
     // Compute reputation from order_events (source of truth per README).
     const completedRows = await db

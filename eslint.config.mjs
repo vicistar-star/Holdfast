@@ -30,6 +30,7 @@ export default [
       ...tsPlugin.configs["recommended-type-checked"].rules,
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/require-await": "off",
       "no-console": ["warn", { allow: ["warn", "error"] }],
     },
   },

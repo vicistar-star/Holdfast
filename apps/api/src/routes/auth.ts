@@ -9,8 +9,7 @@ import { OtpStore } from "../auth/otpStore.ts";
 import { issueToken } from "../auth/jwt.ts";
 import { badRequest, tooManyRequests } from "../lib/errors.ts";
 import { RateLimiter } from "../lib/rateLimiter.ts";
-import { db, schema } from "@holdfast/db";
-import { eq } from "drizzle-orm";
+import { db, schema, eq } from "@holdfast/db";
 
 const otpStore = new OtpStore();
 const otpProvider = new ConsoleOtpProvider();
@@ -24,12 +23,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/otp/request", async (request, reply) => {
     const parsed = OtpRequestSchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
     const { phone } = parsed.data;
 
     if (!otpRateLimit.allow(phone)) {
-      return tooManyRequests(reply, request.id as string);
+      return tooManyRequests(reply, request.id);
     }
 
     const code = generateOtp();
@@ -44,12 +43,12 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/otp/verify", async (request, reply) => {
     const parsed = OtpVerifySchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
     const { phone, code } = parsed.data;
 
     if (!otpStore.verify(phone, code)) {
-      return badRequest(reply, "Invalid or expired OTP", request.id as string);
+      return badRequest(reply, "Invalid or expired OTP", request.id);
     }
 
     // Upsert the user — create on first login, return existing on subsequent logins.

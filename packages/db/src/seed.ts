@@ -8,7 +8,7 @@
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
-import * as schema from "./schema.ts";
+import * as schema from "./schema.js";
 
 const DATABASE_URL =
   process.env["DATABASE_URL"] ??
@@ -18,7 +18,7 @@ const pool = postgres(DATABASE_URL);
 const db = drizzle(pool, { schema });
 
 async function seed() {
-  console.log("Seeding database…");
+  console.warn("Seeding database…");
 
   // ── Demo arbiter user ──────────────────────────────────────────────────────
   await db
@@ -91,14 +91,14 @@ async function seed() {
         amount_minor: 5000000n,
         currency: "NGN",
         status,
-        ship_by: shipBy.toISOString(),
+        ship_by: shipBy,
         shipped_at:
           ["Shipped", "Released", "Disputed", "Resolved"].includes(status)
-            ? now.toISOString()
+            ? now
             : null,
         review_ends:
           ["Shipped", "Released", "Disputed", "Resolved"].includes(status)
-            ? new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
+            ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
             : null,
       })
       .onConflictDoNothing();
@@ -132,7 +132,7 @@ async function seed() {
     }
   }
 
-  console.log("Seed complete.");
+  console.warn("Seed complete.");
   await pool.end();
 }
 

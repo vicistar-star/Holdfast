@@ -21,7 +21,7 @@ export interface OtpProvider {
 export class ConsoleOtpProvider implements OtpProvider {
   async send(phone: string, code: string): Promise<void> {
     // In dev/test this just logs. Production uses a real SMS provider.
-    console.log(`[OTP mock] ${phone} → code: ${code}`);
+    console.warn(`[OTP mock] ${phone} → code: ${code}`);
   }
 }
 

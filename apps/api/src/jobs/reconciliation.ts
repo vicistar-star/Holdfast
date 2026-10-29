@@ -11,8 +11,7 @@
  *
  * This table addition is documented in docs/decisions.md.
  */
-import { db, schema } from "@holdfast/db";
-import { eq, inArray } from "drizzle-orm";
+import { db, schema, eq } from "@holdfast/db";
 import { getPaymentProvider } from "../payment/mockProvider.ts";
 
 export async function runReconciliation(since: Date = new Date(Date.now() - 86_400_000)): Promise<{

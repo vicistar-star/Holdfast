@@ -19,8 +19,7 @@ import {
 import { authenticate } from "../lib/middleware.ts";
 import { verifyToken, issueOrderToken } from "../auth/jwt.ts";
 import { badRequest, forbidden, notFound, conflict } from "../lib/errors.ts";
-import { db, schema } from "@holdfast/db";
-import { eq, and, sql } from "drizzle-orm";
+import { db, schema, eq } from "@holdfast/db";
 
 const JWT_SECRET = process.env["JWT_SECRET"] ?? "dev-secret-change-me";
 
@@ -68,26 +67,26 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = CreateOrderSchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
 
     const link = await db.query.payment_links.findFirst({
       where: eq(schema.payment_links.slug, slug),
     });
-    if (!link) return notFound(reply, "Link", request.id as string);
+    if (!link) return notFound(reply, "Link", request.id);
     if (link.expires_at && new Date(link.expires_at) < new Date()) {
-      return notFound(reply, "Link", request.id as string);
+      return notFound(reply, "Link", request.id);
     }
 
     const seller = await db.query.sellers.findFirst({
       where: eq(schema.sellers.user_id, link.seller_id),
     });
-    if (!seller) return notFound(reply, "Seller", request.id as string);
+    if (!seller) return notFound(reply, "Seller", request.id);
 
     // Tier 0 sellers cannot receive payments.
     const limits = getTierLimits(seller.kyc_tier);
     if (limits.max_order_minor === 0n) {
-      return forbidden(reply, request.id as string);
+      return forbidden(reply, request.id);
     }
 
     const now = new Date();
@@ -103,7 +102,7 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
           amount_minor: link.amount_minor,
           currency: link.currency,
           status: "Funded",
-          ship_by: shipBy.toISOString(),
+          ship_by: shipBy,
         })
         .returning();
 
@@ -153,7 +152,7 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
         const p = result.payload;
         // Seller auth: sub is user UUID, role is 'seller'
         if (p.role === "seller") {
-          const order = await getOrderOrFail(id, reply, request.id as string);
+          const order = await getOrderOrFail(id, reply, request.id);
           if (!order) return;
           const seller = await db.query.sellers.findFirst({
             where: eq(schema.sellers.user_id, p.sub),
@@ -168,9 +167,9 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    if (!authorised) return forbidden(reply, request.id as string);
+    if (!authorised) return forbidden(reply, request.id);
 
-    const order = await getOrderOrFail(id, reply, request.id as string);
+    const order = await getOrderOrFail(id, reply, request.id);
     if (!order) return;
 
     reply.status(200).send({
@@ -194,10 +193,10 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const parsed = ShipOrderSchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
 
-    const order = await getOrderOrFail(id, reply, request.id as string);
+    const order = await getOrderOrFail(id, reply, request.id);
     if (!order) return;
 
     // Verify the caller is the seller for this order.
@@ -205,7 +204,7 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
       where: eq(schema.sellers.user_id, request.jwtPayload!.sub),
     });
     if (!seller || seller.user_id !== order.seller_id) {
-      return forbidden(reply, request.id as string);
+      return forbidden(reply, request.id);
     }
 
     const now = new Date();
@@ -218,7 +217,7 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
       reviewEnds: order.review_ends ? new Date(order.review_ends) : null,
     });
 
-    if (!result.ok) return badRequest(reply, result.error.message, request.id as string);
+    if (!result.ok) return badRequest(reply, result.error.message, request.id);
 
     const link = await db.query.payment_links.findFirst({ where: eq(schema.payment_links.id, order.link_id) });
     const reviewEnds = new Date(now.getTime() + (link?.review_hours ?? 24) * 3600_000);
@@ -230,8 +229,8 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
       actor: "seller",
       note: { waybill: parsed.data.waybill, note: parsed.data.note },
       orderUpdates: {
-        shipped_at: now.toISOString(),
-        review_ends: reviewEnds.toISOString(),
+        shipped_at: now,
+        review_ends: reviewEnds,
       },
     });
 
@@ -244,13 +243,13 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     const auth = request.headers.authorization;
 
     // Buyer uses an order token (not a user auth token).
-    if (!auth?.startsWith("Bearer ")) return forbidden(reply, request.id as string);
+    if (!auth?.startsWith("Bearer ")) return forbidden(reply, request.id);
     const tokenResult = verifyToken(auth.slice(7), JWT_SECRET);
     if (!tokenResult.ok || tokenResult.payload["order_id"] !== id) {
-      return forbidden(reply, request.id as string);
+      return forbidden(reply, request.id);
     }
 
-    const order = await getOrderOrFail(id, reply, request.id as string);
+    const order = await getOrderOrFail(id, reply, request.id);
     if (!order) return;
 
     const now = new Date();
@@ -263,7 +262,7 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
       reviewEnds: order.review_ends ? new Date(order.review_ends) : null,
     });
 
-    if (!result.ok) return badRequest(reply, result.error.message, request.id as string);
+    if (!result.ok) return badRequest(reply, result.error.message, request.id);
 
     await applyTransition({
       orderId: id,
@@ -280,18 +279,18 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string };
     const auth = request.headers.authorization;
 
-    if (!auth?.startsWith("Bearer ")) return forbidden(reply, request.id as string);
+    if (!auth?.startsWith("Bearer ")) return forbidden(reply, request.id);
     const tokenResult = verifyToken(auth.slice(7), JWT_SECRET);
     if (!tokenResult.ok || tokenResult.payload["order_id"] !== id) {
-      return forbidden(reply, request.id as string);
+      return forbidden(reply, request.id);
     }
 
     const parsed = OpenDisputeSchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
 
-    const order = await getOrderOrFail(id, reply, request.id as string);
+    const order = await getOrderOrFail(id, reply, request.id);
     if (!order) return;
 
     const now = new Date();
@@ -304,13 +303,13 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
       reviewEnds: order.review_ends ? new Date(order.review_ends) : null,
     });
 
-    if (!result.ok) return badRequest(reply, result.error.message, request.id as string);
+    if (!result.ok) return badRequest(reply, result.error.message, request.id);
 
     // Check no existing dispute (belt-and-suspenders; DB UNIQUE also enforces this).
     const existingDispute = await db.query.disputes.findFirst({
       where: eq(schema.disputes.order_id, id),
     });
-    if (existingDispute) return conflict(reply, "Dispute already open", request.id as string);
+    if (existingDispute) return conflict(reply, "Dispute already open", request.id);
 
     await db.transaction(async (tx) => {
       await tx.update(schema.orders).set({ status: result.nextStatus }).where(eq(schema.orders.id, id));
@@ -334,23 +333,23 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
   app.post("/orders/:id/evidence", async (request, reply) => {
     const { id } = request.params as { id: string };
     const auth = request.headers.authorization;
-    if (!auth?.startsWith("Bearer ")) return forbidden(reply, request.id as string);
+    if (!auth?.startsWith("Bearer ")) return forbidden(reply, request.id);
 
     const tokenResult = verifyToken(auth.slice(7), JWT_SECRET);
-    if (!tokenResult.ok) return forbidden(reply, request.id as string);
+    if (!tokenResult.ok) return forbidden(reply, request.id);
 
     const payload = tokenResult.payload;
     // Allow both buyer order token and seller/arbiter auth token.
     const isBuyerToken = payload.role === "buyer_order" && payload["order_id"] === id;
     const isSellerOrArbiter = payload.role === "seller" || payload.role === "arbiter";
-    if (!isBuyerToken && !isSellerOrArbiter) return forbidden(reply, request.id as string);
+    if (!isBuyerToken && !isSellerOrArbiter) return forbidden(reply, request.id);
 
     const parsed = UploadEvidenceMetaSchema.safeParse(request.body);
     if (!parsed.success) {
-      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id as string);
+      return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
     }
 
-    const order = await getOrderOrFail(id, reply, request.id as string);
+    const order = await getOrderOrFail(id, reply, request.id);
     if (!order) return;
 
     // Generate an object key for S3-compatible storage. Actual upload is client-side.

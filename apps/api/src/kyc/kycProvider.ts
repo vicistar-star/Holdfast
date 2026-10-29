@@ -63,7 +63,7 @@ export class MockKycProvider implements KycProvider {
       const result: KycStatusResult = {
         provider_ref: parsed.provider_ref,
         status: parsed.status as KycStatusResult["status"],
-        verified_name: parsed.verified_name,
+        ...(parsed.verified_name ? { verified_name: parsed.verified_name } : {}),
       };
       this.store.set(parsed.provider_ref, result);
       return result;

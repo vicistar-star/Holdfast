@@ -10,8 +10,7 @@
  * payment received) and, in Mode B, triggers on-chain funding.
  */
 import type { FastifyInstance } from "fastify";
-import { db, schema } from "@holdfast/db";
-import { eq, and } from "drizzle-orm";
+import { db, schema, eq, and } from "@holdfast/db";
 import { getPaymentProvider } from "../payment/mockProvider.ts";
 import { parseEscrowMode } from "@holdfast/shared";
 
@@ -58,7 +57,7 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
     if (verified.event_type !== "charge.success") {
       await db
         .update(schema.webhook_events)
-        .set({ processed_at: new Date().toISOString() })
+        .set({ processed_at: new Date() })
         .where(
           and(
             eq(schema.webhook_events.provider, "payment"),
@@ -89,7 +88,7 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
       app.log.warn({ reference: verified.reference }, "No order found for payment reference");
       await db
         .update(schema.webhook_events)
-        .set({ processed_at: new Date().toISOString() })
+        .set({ processed_at: new Date() })
         .where(
           and(
             eq(schema.webhook_events.provider, "payment"),
@@ -111,7 +110,7 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
 
     await db
       .update(schema.webhook_events)
-      .set({ processed_at: new Date().toISOString() })
+      .set({ processed_at: new Date() })
       .where(
         and(
           eq(schema.webhook_events.provider, "payment"),

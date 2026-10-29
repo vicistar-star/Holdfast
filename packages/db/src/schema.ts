@@ -234,3 +234,41 @@ export const reconciliation_issues = pgTable("reconciliation_issues", {
     .notNull()
     .defaultNow(),
 });
+
+// ── indexer_cursors ───────────────────────────────────────────────────────────
+// Addition beyond README schema — documented in docs/decisions.md.
+// Persists the Soroban RPC cursor and latest processed ledger for the event indexer.
+
+export const indexer_cursors = pgTable("indexer_cursors", {
+  id: text("id").primaryKey(), // e.g. "default"
+  last_ledger: integer("last_ledger").notNull(),
+  cursor: text("cursor"),
+  updated_at: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ── notification_deliveries ───────────────────────────────────────────────────
+// Addition beyond README schema — documented in docs/decisions.md.
+// Tracks sent notifications to ensure idempotent delivery (no person notified twice per event).
+
+export const notification_deliveries = pgTable(
+  "notification_deliveries",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    dedup_key: text("dedup_key").notNull(),
+    recipient: text("recipient").notNull(),
+    channel: text("channel").notNull(), // 'whatsapp' | 'sms' | 'console' | 'email'
+    template: text("template").notNull(),
+    status: text("status").notNull(), // 'sent' | 'failed'
+    payload: jsonb("payload"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("notification_deliveries_dedup_idx").on(t.dedup_key),
+  ],
+);

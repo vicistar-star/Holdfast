@@ -25,7 +25,6 @@ export interface KeyStore {
 
 const ALGO = "aes-256-gcm";
 const IV_LEN = 12;
-const TAG_LEN = 16;
 
 function masterKey(): Buffer {
   const raw = process.env["KEY_STORE_MASTER_KEY"];

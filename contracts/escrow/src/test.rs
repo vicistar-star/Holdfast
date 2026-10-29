@@ -3,7 +3,7 @@
 //! The soroban-sdk v27 test client exposes two call variants:
 //!   - client.func(...)        — panics on contract error (use for expected-success paths)
 //!   - client.try_func(...)    — returns Result<T, Result<Error, InvokeError>>
-//!                               (use for expected-error paths)
+//!     (use for expected-error paths)
 //!
 //! Test organisation:
 //!   mod create_and_fund     — happy path, rejections, pause, cap, TTL
@@ -28,6 +28,7 @@ use soroban_sdk::{
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
+#[allow(dead_code)]
 struct TestSetup<'a> {
     env: Env,
     contract: EscrowContractClient<'a>,

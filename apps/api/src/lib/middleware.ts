@@ -19,12 +19,12 @@ export async function authenticate(
 ): Promise<boolean> {
   const auth = request.headers.authorization;
   if (!auth?.startsWith("Bearer ")) {
-    unauthorized(reply, request.id as string);
+    unauthorized(reply, request.id);
     return false;
   }
   const result = verifyToken(auth.slice(7), JWT_SECRET);
   if (!result.ok) {
-    unauthorized(reply, request.id as string);
+    unauthorized(reply, request.id);
     return false;
   }
   request.jwtPayload = result.payload;
@@ -38,7 +38,7 @@ export async function requireRole(
 ): Promise<boolean> {
   if (!(await authenticate(request, reply))) return false;
   if (request.jwtPayload?.role !== role) {
-    unauthorized(reply, request.id as string);
+    unauthorized(reply, request.id);
     return false;
   }
   return true;
