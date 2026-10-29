@@ -7,6 +7,7 @@
     "dev": "node --watch --experimental-strip-types src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node --experimental-strip-types src/index.ts",
+    "backfill": "node --experimental-strip-types src/backfill.ts",
     "test": "node --experimental-strip-types --test src/**/*.test.ts",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit"
