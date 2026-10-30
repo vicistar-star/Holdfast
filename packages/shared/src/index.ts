@@ -37,6 +37,26 @@ export const TERMINAL_STATUSES: ReadonlySet<OrderStatus> = new Set([
   "Resolved",
 ]);
 
+/**
+ * Validates whether an order in status `current` can advance monotonically
+ * to `target` per the state machine rules.
+ */
+export function canAdvanceStatus(current: OrderStatus, target: OrderStatus): boolean {
+  if (current === target) return false;
+  if (TERMINAL_STATUSES.has(current)) return false;
+
+  const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+    Funded: ["Shipped", "Refunded"],
+    Shipped: ["Released", "Disputed"],
+    Disputed: ["Resolved"],
+    Released: [],
+    Refunded: [],
+    Resolved: [],
+  };
+
+  return validTransitions[current]?.includes(target) ?? false;
+}
+
 // ── Escrow mode ───────────────────────────────────────────────────────────────
 
 /** Mode A = local-currency rails; Mode B = on-chain USDC escrow (testnet only). */

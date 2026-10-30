@@ -8,6 +8,7 @@ import { sellerRoutes } from "./routes/sellers.ts";
 import { linkRoutes } from "./routes/links.ts";
 import { orderRoutes } from "./routes/orders.ts";
 import { adminRoutes } from "./routes/admin.ts";
+import { webhookRoutes } from "./routes/webhooks.ts";
 import { setLogger } from "./lib/logger.ts";
 
 export async function buildApp(opts: { logger?: boolean } = {}) {
@@ -45,6 +46,8 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
   await app.register(orderRoutes, { prefix: "/v1" });
   await app.register(adminRoutes, { prefix: "/v1/admin" });
   await app.register(adminRoutes, { prefix: "/admin" }); // Alias per README table
+  await app.register(webhookRoutes, { prefix: "/v1/webhooks" });
+  await app.register(webhookRoutes, { prefix: "/webhooks" });
 
   // Health check
   app.get("/health", async () => ({ ok: true }));

@@ -43,6 +43,8 @@ coverage/
 junit.xml
 test-results/
 playwright-report/
+.tmp/
+**/.tmp/
 
 # Wasm build output (checked in only when intentional)
 *.wasm

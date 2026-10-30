@@ -69,8 +69,8 @@ export async function runReconciliation(since: Date = new Date(Date.now() - 86_4
       issueCount++;
     }
 
-    // Check that released/resolved orders have a payout record.
-    if (order.status === "Released" || order.status === "Resolved") {
+    // Check that released/resolved/refunded orders have a payout record.
+    if (order.status === "Released" || order.status === "Resolved" || order.status === "Refunded") {
       const payoutRows = await db
         .select()
         .from(schema.payouts)

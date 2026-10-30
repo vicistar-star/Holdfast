@@ -20,7 +20,7 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
     config: { rawBody: true },
   }, async (request, reply) => {
     const provider = getPaymentProvider();
-    const rawBody = (request.body as string) ?? "";
+    const rawBody = typeof request.body === "string" ? request.body : JSON.stringify(request.body ?? {});
     const signature = (request.headers["x-webhook-signature"] as string) ?? "";
 
     const verified = await provider.verifyWebhook(rawBody, signature);
@@ -33,10 +33,19 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
     // Idempotency check: try to insert webhook_events; skip if already processed.
     let alreadyProcessed = false;
     try {
+      let parsedPayload: Record<string, unknown> = {};
+      try {
+        parsedPayload =
+          typeof request.body === "object" && request.body !== null
+            ? (request.body as Record<string, unknown>)
+            : (JSON.parse(rawBody) as Record<string, unknown>);
+      } catch {
+        parsedPayload = {};
+      }
       await db.insert(schema.webhook_events).values({
         provider: "payment",
         event_id: verified.event_id,
-        payload: JSON.parse(rawBody) as object,
+        payload: parsedPayload,
       });
     } catch (err: unknown) {
       // Unique constraint violation = duplicate delivery.
@@ -96,6 +105,65 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
           ),
         );
       return reply.status(200).send({ ok: true });
+    }
+
+    // Fetch order to verify existence and check for reordering / delays
+    const order = await db.query.orders.findFirst({
+      where: eq(schema.orders.id, matchingEvent.order_id),
+    });
+
+    if (!order) {
+      app.log.warn({ order_id: matchingEvent.order_id }, "Matching event found but order missing");
+      await db
+        .update(schema.webhook_events)
+        .set({ processed_at: new Date() })
+        .where(
+          and(
+            eq(schema.webhook_events.provider, "payment"),
+            eq(schema.webhook_events.event_id, verified.event_id),
+          ),
+        );
+      return reply.status(200).send({ ok: true, reason: "order_missing" });
+    }
+
+    // Amount check: if partner reports an amount differing from order amount, record issue
+    if (verified.amount_minor > 0n && verified.amount_minor !== order.amount_minor) {
+      app.log.warn(
+        {
+          order_id: order.id,
+          expected: order.amount_minor.toString(),
+          received: verified.amount_minor.toString(),
+        },
+        "Webhook payment amount mismatch",
+      );
+      await db.insert(schema.reconciliation_issues).values({
+        order_id: order.id,
+        issue_type: "AMOUNT_MISMATCH",
+        detail: {
+          reference: verified.reference,
+          expected: order.amount_minor.toString(),
+          actual: verified.amount_minor.toString(),
+          event_id: verified.event_id,
+        },
+      });
+    }
+
+    // Reordering / Delay check: If order has already transitioned to a terminal status
+    if (["Released", "Refunded", "Resolved"].includes(order.status)) {
+      app.log.info(
+        { order_id: order.id, status: order.status },
+        "Delayed or reordered webhook arrived for terminal order",
+      );
+      await db
+        .update(schema.webhook_events)
+        .set({ processed_at: new Date() })
+        .where(
+          and(
+            eq(schema.webhook_events.provider, "payment"),
+            eq(schema.webhook_events.event_id, verified.event_id),
+          ),
+        );
+      return reply.status(200).send({ ok: true, reason: "already_terminal" });
     }
 
     const escrowMode = parseEscrowMode(process.env["ESCROW_MODE"]);
