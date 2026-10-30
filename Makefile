@@ -12,6 +12,7 @@ setup:
 	@[ -f .env ] || (cp .env.example .env && echo "Created .env from .env.example — fill in real values before running.")
 	pnpm install
 	rustup target add wasm32v1-none 2>/dev/null || rustup target add wasm32-unknown-unknown
+	git config core.hooksPath .githooks 2>/dev/null || true
 	@echo "✓ setup complete"
 
 # ── Development ───────────────────────────────────────────────────────────────
@@ -19,6 +20,10 @@ setup:
 ## Start Postgres and Redis, then run all apps in watch mode
 dev: docker-up
 	pnpm dev
+
+## Run the full stack and print ready-to-test seeded demo URLs
+demo:
+	pnpm dev:demo
 
 ## Start local infrastructure (Postgres + Redis) in the background
 docker-up:
@@ -57,6 +62,10 @@ lint:
 ## Run TypeScript type-checker across all packages
 typecheck:
 	pnpm typecheck
+
+## Run pre-commit checks (format, lint, typecheck, secret scan)
+check:
+	./scripts/pre-commit.sh
 
 ## Run cargo clippy (Rust linter)
 contract-clippy:

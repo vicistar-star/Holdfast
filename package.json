@@ -2,15 +2,18 @@
   "name": "holdfast",
   "private": true,
   "version": "0.0.1",
+  "type": "module",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
   "scripts": {
     "dev": "pnpm --parallel --filter './apps/*' dev",
+    "dev:demo": "node --experimental-strip-types scripts/dev-demo.ts",
     "build": "pnpm --recursive --filter './packages/*' build && pnpm --recursive --filter './apps/*' build",
     "test": "pnpm --recursive test",
     "test:e2e": "pnpm --filter @holdfast/web test:e2e",
+    "check": "./scripts/pre-commit.sh",
     "lint": "eslint apps/*/src packages/*/src",
     "typecheck": "tsc -p tsconfig.eslint.json --noEmit",
     "contract:test": "cd contracts/escrow && cargo test",

@@ -10,6 +10,7 @@ import { orderRoutes } from "./routes/orders.ts";
 import { adminRoutes } from "./routes/admin.ts";
 import { webhookRoutes } from "./routes/webhooks.ts";
 import { setLogger } from "./lib/logger.ts";
+import { observability } from "./lib/observability.ts";
 
 import type { RouteOptions } from "fastify";
 
@@ -73,6 +74,10 @@ export async function buildApp(opts: {
 
   // Health check
   app.get("/health", async () => ({ ok: true }));
+
+  // Operational metrics
+  app.get("/metrics", async () => observability.collectMetrics());
+  app.get("/v1/admin/metrics", async () => observability.collectMetrics());
 
   return app;
 }

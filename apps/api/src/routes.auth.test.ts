@@ -34,6 +34,8 @@ interface DeclaredRoutePolicy {
 const ROUTE_AUTH_REGISTRY: Record<string, DeclaredRoutePolicy> = {
   // Public infrastructure and auth
   "GET /health": { policy: "public", description: "Health check endpoint" },
+  "GET /metrics": { policy: "public", description: "Operational metrics endpoint" },
+  "GET /v1/admin/metrics": { policy: "public", description: "Admin operational metrics endpoint" },
   "OPTIONS /*": { policy: "public", description: "CORS preflight handler" },
   "POST /v1/auth/otp/request": { policy: "public", description: "Phone OTP request" },
   "POST /v1/auth/otp/verify": { policy: "public", description: "Phone OTP verification" },
