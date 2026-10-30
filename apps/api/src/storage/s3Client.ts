@@ -52,6 +52,18 @@ export interface VerificationResult {
   sizeBytes: number;
 }
 
+function safeResolvePath(baseDir: string, objectKey: string): string {
+  if (objectKey.includes("..") || path.isAbsolute(objectKey)) {
+    throw new Error(`Path traversal detected in objectKey: ${objectKey}`);
+  }
+  const resolved = path.resolve(baseDir, objectKey);
+  const baseResolved = path.resolve(baseDir);
+  if (!resolved.startsWith(baseResolved + path.sep) && resolved !== baseResolved) {
+    throw new Error(`Path traversal detected in objectKey: ${objectKey}`);
+  }
+  return resolved;
+}
+
 export class StorageService {
   private readonly config: StorageConfig;
   private readonly fallbackDir: string;
@@ -103,7 +115,7 @@ export class StorageService {
       }
     });
 
-    const storagePath = path.join(this.fallbackDir, objectKey);
+    const storagePath = safeResolvePath(this.fallbackDir, objectKey);
     await fs.mkdir(path.dirname(storagePath), { recursive: true });
 
     const fileStream = createWriteStream(storagePath);
@@ -129,7 +141,7 @@ export class StorageService {
    * Retrieves a readable stream for a stored object.
    */
   async getObjectStream(objectKey: string): Promise<Readable> {
-    const storagePath = path.join(this.fallbackDir, objectKey);
+    const storagePath = safeResolvePath(this.fallbackDir, objectKey);
     try {
       await fs.access(storagePath);
       return createReadStream(storagePath);

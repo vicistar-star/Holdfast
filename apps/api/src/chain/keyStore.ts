@@ -29,6 +29,9 @@ const IV_LEN = 12;
 function masterKey(): Buffer {
   const raw = process.env["KEY_STORE_MASTER_KEY"];
   if (!raw) {
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error("KEY_STORE_MASTER_KEY must be provided in production; fallback key forbidden");
+    }
     // In tests/dev, derive a fixed key from a constant. Not secure.
     // ASSUMPTION: real dev setups provide KEY_STORE_MASTER_KEY in .env.
     return Buffer.alloc(32, "holdfast-dev-key-do-not-use-prod");

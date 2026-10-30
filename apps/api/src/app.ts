@@ -11,7 +11,12 @@ import { adminRoutes } from "./routes/admin.ts";
 import { webhookRoutes } from "./routes/webhooks.ts";
 import { setLogger } from "./lib/logger.ts";
 
-export async function buildApp(opts: { logger?: boolean } = {}) {
+import type { RouteOptions } from "fastify";
+
+export async function buildApp(opts: {
+  logger?: boolean;
+  onRoute?: (routeOptions: RouteOptions) => void;
+} = {}) {
   const app = Fastify({
     logger: opts.logger ?? true,
     // Add a request ID to every request for tracing.
@@ -19,11 +24,28 @@ export async function buildApp(opts: { logger?: boolean } = {}) {
     requestIdHeader: "x-request-id",
   });
 
+  if (opts.onRoute) {
+    app.addHook("onRoute", opts.onRoute);
+  }
+
   setLogger(app.log);
 
-  // Global hook: add request ID to every response.
+  // Global hook: add request ID, security headers, and CORS headers.
   app.addHook("onSend", async (request, reply) => {
     reply.header("x-request-id", request.id);
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("x-frame-options", "DENY");
+    reply.header("strict-transport-security", "max-age=31536000; includeSubDomains");
+    reply.header("referrer-policy", "strict-origin-when-cross-origin");
+    reply.header("content-security-policy", "default-src 'self'");
+    reply.header("access-control-allow-origin", "*");
+    reply.header("access-control-allow-methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+    reply.header("access-control-allow-headers", "Content-Type,Authorization,x-request-id,x-webhook-signature,x-filename");
+  });
+
+  // Handle CORS preflight options
+  app.options("/*", async (_request, reply) => {
+    return reply.status(204).send();
   });
 
   // Parse JSON body.

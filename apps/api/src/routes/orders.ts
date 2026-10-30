@@ -19,10 +19,17 @@ import {
 import { authenticate } from "../lib/middleware.ts";
 import { verifyToken, issueOrderToken } from "../auth/jwt.ts";
 import { defaultStorage } from "../storage/s3Client.ts";
-import { badRequest, forbidden, notFound, conflict } from "../lib/errors.ts";
+import { badRequest, forbidden, notFound, conflict, tooManyRequests } from "../lib/errors.ts";
+import { RateLimiter } from "../lib/rateLimiter.ts";
 import { db, schema, eq } from "@holdfast/db";
 
 const JWT_SECRET = process.env["JWT_SECRET"] ?? "dev-secret-change-me";
+
+// Rate limiters:
+// Max 10 order creations per 10 minutes per buyer phone/IP
+const orderCreateRateLimiter = new RateLimiter(10, 10 * 60 * 1000);
+// Max 20 evidence uploads per hour per order
+const evidenceUploadRateLimiter = new RateLimiter(20, 60 * 60 * 1000);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +76,11 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     const parsed = CreateOrderSchema.safeParse(request.body);
     if (!parsed.success) {
       return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
+    }
+
+    const clientKey = parsed.data.buyer_phone || request.ip;
+    if (!orderCreateRateLimiter.allow(clientKey)) {
+      return tooManyRequests(reply, request.id);
     }
 
     const link = await db.query.payment_links.findFirst({
@@ -345,6 +357,10 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     const isSellerOrArbiter = payload.role === "seller" || payload.role === "arbiter";
     if (!isBuyerToken && !isSellerOrArbiter) return forbidden(reply, request.id);
 
+    if (!evidenceUploadRateLimiter.allow(id)) {
+      return tooManyRequests(reply, request.id);
+    }
+
     const parsed = UploadEvidenceMetaSchema.safeParse(request.body);
     if (!parsed.success) {
       return badRequest(reply, parsed.error.issues[0]?.message ?? "Invalid input", request.id);
@@ -379,6 +395,10 @@ export async function orderRoutes(app: FastifyInstance): Promise<void> {
     const isBuyerToken = payload.role === "buyer_order" && payload["order_id"] === id;
     const isSellerOrArbiter = payload.role === "seller" || payload.role === "arbiter";
     if (!isBuyerToken && !isSellerOrArbiter) return forbidden(reply, request.id);
+
+    if (!evidenceUploadRateLimiter.allow(id)) {
+      return tooManyRequests(reply, request.id);
+    }
 
     const order = await getOrderOrFail(id, reply, request.id);
     if (!order) return;
